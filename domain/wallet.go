@@ -11,8 +11,8 @@ import (
 )
 
 type WalletService struct {
-	repo   *repository.WalletRepo
-	hd     *HDWalletService
+	repo *repository.WalletRepo
+	hd   *HDWalletService
 }
 
 // NewWalletService 整合 HDWalletService

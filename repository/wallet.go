@@ -2,76 +2,68 @@ package repository
 
 import (
 	"context"
-	"errors"
-	"sync"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/linlinbupt123-crypto/wallet_service/entity"
 )
 
+
 type WalletRepo struct {
-	wallets map[string]*entity.HDWallet
-	assets  map[string]map[string]*entity.Asset  // walletID -> symbol -> asset
-	subs    map[string]*entity.Subscription      // userID_symbol -> threshold
-	mu      sync.RWMutex
+col *mongo.Collection
+sub *mongo.Collection
 }
 
-func NewWalletRepo() *WalletRepo {
-	return &WalletRepo{
-		wallets: make(map[string]*entity.HDWallet),
-		assets:  make(map[string]map[string]*entity.Asset),
-		subs:    make(map[string]*entity.Subscription),
-	}
+
+func NewWalletRepo(db *mongo.Database) *WalletRepo {
+return &WalletRepo{
+col: db.Collection("wallets"),
+sub: db.Collection("subscriptions"),
+}
 }
 
-// Wallet 操作
-func (r *WalletRepo) SaveWallet(ctx context.Context, w *entity.HDWallet) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.wallets[w.UserID] = w
-	return nil
-}
-func (r *WalletRepo) GetWallet(ctx context.Context, userID string) (*entity.HDWallet, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	w, ok := r.wallets[userID]
-	if !ok {
-		return nil, errors.New("wallet not found")
-	}
-	return w, nil
+
+func (r *WalletRepo) Save(ctx context.Context, w *entity.HDWallet) error {
+_, err := r.col.InsertOne(ctx, w)
+return err
 }
 
-// Asset 操作
-func (r *WalletRepo) AddAsset(walletID string, asset *entity.Asset) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if r.assets[walletID] == nil {
-		r.assets[walletID] = make(map[string]*entity.Asset)
-	}
-	r.assets[walletID][asset.Symbol] = asset
+
+func (r *WalletRepo) GetByUserID(ctx context.Context, userID string) (*entity.HDWallet, error) {
+var w entity.HDWallet
+if err := r.col.FindOne(ctx, bson.M{"user_id": userID}).Decode(&w); err != nil {
+return nil, err
 }
-func (r *WalletRepo) GetAssets(walletID string) []*entity.Asset {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	var res []*entity.Asset
-	for _, a := range r.assets[walletID] {
-		res = append(res, a)
-	}
-	return res
+return &w, nil
 }
 
-// Subscription 操作
-func (r *WalletRepo) AddSubscription(sub *entity.Subscription) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	key := sub.UserID + "_" + sub.Symbol
-	r.subs[key] = sub
+
+func (r *WalletRepo) AddSubscription(ctx context.Context, s *entity.Subscription) error {
+_, err := r.sub.InsertOne(ctx, s)
+return err
 }
-func (r *WalletRepo) ListSubscriptions() []*entity.Subscription {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	var res []*entity.Subscription
-	for _, s := range r.subs {
-		res = append(res, s)
-	}
-	return res
+
+
+func (r *WalletRepo) ListSubscriptions(ctx context.Context) ([]*entity.Subscription, error) {
+cur, err := r.sub.Find(ctx, bson.M{})
+if err != nil {
+return nil, err
+}
+defer cur.Close(ctx)
+var out []*entity.Subscription
+for cur.Next(ctx) {
+var s entity.Subscription
+if err := cur.Decode(&s); err == nil {
+out = append(out, &s)
+}
+}
+return out, nil
+}
+
+
+func (r *WalletRepo) AddAddress(ctx context.Context, addr *entity.Address) error {
+_, err := r.col.UpdateOne(ctx, bson.M{"user_id": addr.UserID}, bson.M{"$push": bson.M{"addresses": addr}}, options.Update().SetUpsert(true))
+return err
 }

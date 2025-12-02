@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -15,10 +16,16 @@ type MongoRepo struct {
 	subColl    *mongo.Collection
 }
 
-func NewMongoRepo(uri, dbName string) (*MongoRepo, error) {
+func NewMongoRepo(ctx context.Context, uri, dbName string) (*MongoRepo, error) {
 	clientOpts := options.Client().ApplyURI(uri)
-	client, err := mongo.Connect(context.Background(), clientOpts)
+	client, err := mongo.Connect(ctx, clientOpts)
 	if err != nil {
+		return nil, err
+	}
+	// ping
+	ctx2, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	if err := client.Ping(ctx2, nil); err != nil {
 		return nil, err
 	}
 	db := client.Database(dbName)
@@ -30,5 +37,3 @@ func NewMongoRepo(uri, dbName string) (*MongoRepo, error) {
 		subColl:    db.Collection("subscriptions"),
 	}, nil
 }
-
-
