@@ -5,8 +5,9 @@ import (
 )
 
 type HDWallet struct {
-	ID            string  `bson:"id"`
+	ID            string    `bson:"id"`
 	UserID        string    `bson:"user_id"`
+	MnemonicEncrypted []byte `bson:"id"`
 	EncryptedSeed []byte    `bson:"encrypted_seed"`
 	XPrvEncrypted []byte    `bson:"xprv_encrypted"`
 	XPub          string    `bson:"xpub"`

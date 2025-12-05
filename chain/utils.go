@@ -38,4 +38,3 @@ func parseDerivationPath(path string) ([]uint32, error) {
 	}
 	return indices, nil
 }
-

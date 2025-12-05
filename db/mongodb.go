@@ -8,12 +8,29 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+var MongoDB *MongoRepo
+const (
+	uri = "mongodb://admin:password@localhost:27017/?authSource=admin"
+	dbName = "wallet_service"
+)
+
+func InitMongo(){}
+func init(){
+	ctx := context.Background()
+	var err error
+	MongoDB, err = NewMongoRepo(ctx, uri, dbName)
+	if err != nil {
+		panic(err)
+	}
+}
+
 type MongoRepo struct {
-	client     *mongo.Client
-	db         *mongo.Database
-	walletColl *mongo.Collection
-	assetColl  *mongo.Collection
-	subColl    *mongo.Collection
+	Client     *mongo.Client
+	DB         *mongo.Database
+	WalletColl *mongo.Collection
+	AssetColl  *mongo.Collection
+	SubColl    *mongo.Collection
+	AddrColl  *mongo.Collection
 }
 
 func NewMongoRepo(ctx context.Context, uri, dbName string) (*MongoRepo, error) {
@@ -30,10 +47,11 @@ func NewMongoRepo(ctx context.Context, uri, dbName string) (*MongoRepo, error) {
 	}
 	db := client.Database(dbName)
 	return &MongoRepo{
-		client:     client,
-		db:         db,
-		walletColl: db.Collection("wallets"),
-		assetColl:  db.Collection("assets"),
-		subColl:    db.Collection("subscriptions"),
+		Client:     client,
+		DB:         db,
+		WalletColl: db.Collection("wallets"),
+		AssetColl:  db.Collection("assets"),
+		SubColl:    db.Collection("subscriptions"),
+		AddrColl: db.Collection("addresses"),
 	}, nil
 }

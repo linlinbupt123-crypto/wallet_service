@@ -5,7 +5,6 @@ type ChainType string
 const (
 	BTC    ChainType = "btc"
 	ETH    ChainType = "eth"
-	SOLANA ChainType = "solana"
 )
 
 // WalletChain 定义统一接口
