@@ -1,0 +1,52 @@
+这个只是用来学习理论而非盈利
+
+跨链钱包项目
+Code explaination
+HDWalletService 助记词 / 种子 / BIP32/44 派生
+WalletService asset / subscription / exchange
+
+MongoDB
+UI: https://www.mongodb.com/try/download/compass
+
+去这个创建 testNetwork 的 API
+https://docs.metamask.io/developer-tools/faucet/
+
+MySQL UI
+BeekeeperStudio
+
+LICEcap record the .gif
+
+vscode configure
+
+# zsh
+export GVM_ROOT="$HOME/.gvm"
+[[ -s "$GVM_ROOT/scripts/gvm" ]] && source "$GVM_ROOT/scripts/gvm"
+
+# 默认使用 Go 1.24.9
+gvm use go1.24.9 --default
+
+到Faucet网站领取测试币
+https://cloud.google.com/application/web3/faucet/ethereum/sepolia
+
+将vscode配置成golang的ide
+安装 VS Code 的 code 命令
+打开 VS Code GUI。
+按下 Cmd+Shift+P 打开命令面板。
+输入并选择：
+Shell Command: Install 'code' command in PATH
+
+完成后，关闭终端，重新打开，然后测试：
+code --version
+如果能显示版本号，说明命令已安装成功。
+
+2️⃣ 用终端启动 VS Code
+
+这样 VS Code 会继承你的终端 PATH，包括 GVM 的 Go：
+在终端输入这个命令
+code .
+打开vscode ide以后，open project
+
+然后在 VS Code 里：
+
+打开命令面板 Cmd+Shift+P
+运行 Go: Locate Configured Go Tools，应该就能找到 Go 和 gopls 了。
