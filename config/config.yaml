@@ -12,7 +12,6 @@ mongo_uri: mongodb://localhost:27017/wallet
 # Ethereum chain config
 # ======================
 eth:
-  rpc: https://sepolia.infura.io/v3/
-  test_token: xxx
+  rpc: https://sepolia.infura.io/v3/your_project_id
   chain_id: 11155111
   main_net: false
