@@ -289,7 +289,6 @@ func (s *HDWallet) LoadWallet(ctx context.Context, userID string, passphrase str
 }
 
 // DeriveETHAddress derives an Ethereum address from seed using a BIP32/BIP44 derivation path.
-// path: "m/44'/60'/0'/0/0" or "44'/60'/0'/0/0"
 func (s *HDWallet) DeriveETHKeyPair(seed []byte, path string) (*ecdsa.PrivateKey, string, error) {
 	master, err := hdkeychain.NewMaster(seed, &chaincfg.MainNetParams)
 	if err != nil {
@@ -332,42 +331,6 @@ func (s *HDWallet) DeriveETHKeyPair(seed []byte, path string) (*ecdsa.PrivateKey
 	// (omitted here - hard in pure Go without using math/big internals)
 	// }
 	return ecdsaKey, addr.Hex(), nil
-}
-
-// DeriveBTCAddress derives a BTC address from seed using provided path.
-// It returns a legacy/P2PKH address for m/44' paths. For bech32 (84') and p2sh-p2wpkh (49') it currently returns an error
-// TODO: implement P2WPKH and P2SH-P2WPKH encoding using btcutil/txscript when needed.
-func (s *HDWallet) DeriveBTCAddress(seed []byte, path string) (string, error) {
-	master, err := hdkeychain.NewMaster(seed, &chaincfg.MainNetParams)
-	if err != nil {
-		return "", fmt.Errorf("failed to create master key: %w", err)
-	}
-	indices, err := parseDerivationPath(path)
-	if err != nil {
-		return "", fmt.Errorf("invalid derivation path: %w", err)
-	}
-
-	// simple guard to inform about address type based on purpose field
-	if strings.HasPrefix(strings.TrimSpace(path), "m/84'") || strings.HasPrefix(strings.TrimSpace(path), "M/84'") {
-		return "", errors.New("bech32 (P2WPKH) address generation not implemented in this function yet")
-	}
-	if strings.HasPrefix(strings.TrimSpace(path), "m/49'") || strings.HasPrefix(strings.TrimSpace(path), "M/49'") {
-		return "", errors.New("P2SH-P2WPKH address generation not implemented in this function yet")
-	}
-
-	key := master
-	for _, idx := range indices {
-		key, err = key.Derive(idx)
-		if err != nil {
-			return "", fmt.Errorf("failed to derive child key: %w", err)
-		}
-	}
-
-	addr, err := key.Address(&chaincfg.MainNetParams)
-	if err != nil {
-		return "", fmt.Errorf("failed to get address: %w", err)
-	}
-	return addr.EncodeAddress(), nil
 }
 
 // parseDerivationPath accepts "m/44'/60'/0'/0/0" or "44'/60'/0'/0/0"

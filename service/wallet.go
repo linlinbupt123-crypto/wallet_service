@@ -12,6 +12,7 @@ import (
 	"github.com/linlinbupt123-crypto/wallet_service/domain"
 	"github.com/linlinbupt123-crypto/wallet_service/entity"
 	"github.com/linlinbupt123-crypto/wallet_service/repository"
+	"github.com/linlinbupt123-crypto/wallet_service/utils"
 )
 
 type WalletService struct {
@@ -58,7 +59,7 @@ func (s *WalletService) CreateWalletAndAddresses(ctx context.Context, userID, pa
 	}
 	addresses := make(map[string]string)
 	// ETH
-	ethAddr, err := s.EthChain.DeriveAddress(seed, "m/44'/60'/0'/0/0")
+	_, ethAddr, err := s.HDWalletDomain.DeriveETHKeyPair(seed, utils.ETH_DERIVATION_PATH_PREFIX+"0")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -116,7 +117,7 @@ func (s *WalletService) DeriveNewAddress(ctx context.Context, userID, chainName,
 	var addr string
 	switch chainName {
 	case "eth":
-		addr, err = s.EthChain.DeriveAddress(seed, path)
+		_, addr, err = s.HDWalletDomain.DeriveETHKeyPair(seed, path)
 	}
 	if err != nil {
 		return "", err
@@ -156,7 +157,7 @@ func (s *WalletService) GetBalance(ctx context.Context, chainName, address strin
 }
 
 // SendTransaction 发起交易（fromAddress 对应你管理的地址）
-func (s *WalletService) SendTransaction(ctx context.Context, chainName, fromAddress, toAddress, amount string, passphrase string, userID string) (string, error) {
+func (s *WalletService) SendTransaction(ctx context.Context, chainName, toAddress, amount string, passphrase string, userID string) (string, error) {
 	// 1. 找钱包
 	wallet, err := s.WalletRepo.GetByUserID(ctx, userID)
 	if err != nil {
@@ -177,9 +178,9 @@ func (s *WalletService) SendTransaction(ctx context.Context, chainName, fromAddr
 	if err != nil {
 		return "", err
 	}
-	var index int32 = -1
+	var index int32 = 0
 	for _, a := range addrs {
-		if a.Address == fromAddress && a.Chain == chainName {
+		if a.Chain == chainName {
 			index = int32(a.Index)
 			break
 		}

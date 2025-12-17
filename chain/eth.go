@@ -12,9 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/linlinbupt123-crypto/wallet_service/config"
 	wrapErrors "github.com/linlinbupt123-crypto/wallet_service/errors"
-
-	"github.com/btcsuite/btcd/btcutil/hdkeychain"
-	"github.com/btcsuite/btcd/chaincfg"
 )
 
 type ETHChain struct {
@@ -32,42 +29,8 @@ func NewETHChain(cfg config.EthConfig) *ETHChain {
 	}
 }
 
-func (e *ETHChain) DeriveAddress(seed []byte, path string) (string, error) {
-	master, err := hdkeychain.NewMaster(seed, &chaincfg.MainNetParams) // hdkeychain 不区分 eth 网络
-	if err != nil {
-		return "", err
-	}
-
-	indices, err := parseDerivationPath(path)
-	if err != nil {
-		return "", err
-	}
-
-	key := master
-	for _, idx := range indices {
-		key, err = key.Derive(idx)
-		if err != nil {
-			return "", err
-		}
-	}
-
-	priv, err := key.ECPrivKey()
-	if err != nil {
-		return "", err
-	}
-
-	ecdsaKey, err := crypto.ToECDSA(priv.Serialize())
-	if err != nil {
-		return "", err
-	}
-
-	address := crypto.PubkeyToAddress(ecdsaKey.PublicKey)
-	return address.Hex(), nil
-}
-
 func (e *ETHChain) SendETH(ctx context.Context, priv *ecdsa.PrivateKey, to string, amountWei *big.Int) (string, error) {
-	link := fmt.Sprintf("%s%s", e.Rpc, e.TestToken)
-	client, err := ethclient.Dial(link)
+	client, err := ethclient.Dial(e.Rpc)
 	if err != nil {
 		return "", wrapErrors.WrapWithCode(wrapErrors.DailChain, "eth dial", err)
 	}

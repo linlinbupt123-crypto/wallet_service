@@ -91,7 +91,6 @@ func (h *WalletHandler) DeriveAddress(c *gin.Context) {
 
 type SendTxReq struct {
 	Chain      string `json:"chain" binding:"required"`
-	From       string `json:"from" binding:"required"`
 	To         string `json:"to" binding:"required"`
 	Amount     string `json:"amount" binding:"required"`
 	Passphrase string `json:"passphrase" binding:"required"`
@@ -109,7 +108,6 @@ func (h *WalletHandler) SendTransaction(c *gin.Context) {
 	txHash, err := h.walletService.SendTransaction(
 		c.Request.Context(),
 		req.Chain,
-		req.From,
 		req.To,
 		req.Amount,
 		req.Passphrase,
