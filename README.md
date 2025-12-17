@@ -15,7 +15,7 @@ This service allows creating HD wallets, deriving addresses, sending transaction
 去这个创建 testNetwork 的 API
 https://docs.metamask.io/developer-tools/faucet/
 
-到Faucet网站领取测试币
+apply test ETH from Faucet
 https://cloud.google.com/application/web3/faucet/ethereum/sepolia
 
 after send transaction you could search your exchange here by the tx hash
