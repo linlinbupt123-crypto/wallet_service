@@ -4,13 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/big"
 	"time"
 
 	"github.com/linlinbupt123-crypto/wallet_service/chain"
 	"github.com/linlinbupt123-crypto/wallet_service/config"
 	"github.com/linlinbupt123-crypto/wallet_service/domain"
 	"github.com/linlinbupt123-crypto/wallet_service/entity"
+	walletErr "github.com/linlinbupt123-crypto/wallet_service/errors"
 	"github.com/linlinbupt123-crypto/wallet_service/repository"
 	"github.com/linlinbupt123-crypto/wallet_service/utils"
 )
@@ -145,17 +145,6 @@ func generatePath(purpose, coinType, account, change, index int) string {
 	return fmt.Sprintf("m/%d'/%d'/%d'/%d/%d", purpose, coinType, account, change, index)
 }
 
-// GetBalance 查询余额（测试链）
-func (s *WalletService) GetBalance(ctx context.Context, chainName, address string) (string, error) {
-	switch chainName {
-	case "eth":
-	//	return s.EthChain.GetBalance(ctx, address)
-	default:
-		return "", errors.New("unsupported chain")
-	}
-	return "", errors.New("unsupported chain")
-}
-
 // SendTransaction 发起交易（fromAddress 对应你管理的地址）
 func (s *WalletService) SendTransaction(ctx context.Context, chainName, toAddress, amount string, passphrase string, userID string) (string, error) {
 	// 1. 找钱包
@@ -201,12 +190,51 @@ func (s *WalletService) SendTransaction(ctx context.Context, chainName, toAddres
 
 		privKey, _, err := s.HDWalletDomain.DeriveETHKeyPair(seed, path)
 		if err != nil {
+			return "", walletErr.WrapWithCode(walletErr.DeriveErr, "DeriveETHKeyPair", err)
+		}
+		// ETH → Wei
+		amountWei, err := utils.ETHToWei(amount)
+		if err != nil {
 			return "", err
 		}
 
-		amountWei, _ := new(big.Int).SetString(amount, 10)
-
 		return s.EthChain.SendETH(ctx, privKey, toAddress, amountWei)
+	default:
+		return "", errors.New("unsupported chain")
+	}
+}
+
+func (s *WalletService) GetBalance(
+	ctx context.Context,
+	userID string,
+	chain string,
+) (string, error) {
+
+	// 1. 找用户地址（这里简单：取 index = 0 的主地址）
+	addrs, err := s.AddressRepo.GetByUserID(ctx, userID)
+	if err != nil {
+		return "", err
+	}
+
+	var address string
+	for _, a := range addrs {
+		if a.Chain == chain && a.Index == 0 {
+			address = a.Address
+			break
+		}
+	}
+	if address == "" {
+		return "", errors.New("address not found")
+	}
+
+	// 2. 查链上余额
+	switch chain {
+	case "eth":
+		balanceWei, err := s.EthChain.GetBalance(ctx, address)
+		if err != nil {
+			return "", err
+		}
+		return utils.WeiToETH(balanceWei), nil
 	default:
 		return "", errors.New("unsupported chain")
 	}

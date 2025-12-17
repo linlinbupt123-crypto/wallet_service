@@ -1,33 +1,33 @@
-这个只是用来学习理论而非盈利
+# Wallet Service
 
-跨链钱包项目
-Code explaination
-HDWalletService 助记词 / 种子 / BIP32/44 派生
-WalletService asset / subscription / exchange
+A simple HD wallet service supporting Ethereum (ETH) and Bitcoin (BTC) testnets.  
+This service allows creating HD wallets, deriving addresses, sending transactions, and querying balances.
+---
+## Features
 
-MongoDB
-UI: https://www.mongodb.com/try/download/compass
+- Create an HD wallet for a user
+- Derive main and additional addresses
+- Send transactions (ETH/BTC)
+- Query wallet balances
+- Compatible with Ethereum Sepolia testnet
+
 
 去这个创建 testNetwork 的 API
 https://docs.metamask.io/developer-tools/faucet/
 
-MySQL UI
-BeekeeperStudio
+到Faucet网站领取测试币
+https://cloud.google.com/application/web3/faucet/ethereum/sepolia
 
-LICEcap record the .gif
+after send transaction you could search your exchange here by the tx hash
+https://sepolia.etherscan.io
 
-
-
+local env config
 # zsh
 export GVM_ROOT="$HOME/.gvm"
 [[ -s "$GVM_ROOT/scripts/gvm" ]] && source "$GVM_ROOT/scripts/gvm"
 
 # 默认使用 Go 1.24.9
 gvm use go1.24.9 --default
-
-到Faucet网站领取测试币
-https://cloud.google.com/application/web3/faucet/ethereum/sepolia
-
 vscode configure: 将vscode配置成golang的ide
 1) 安装 VS Code 的 code 命令
 打开 VS Code GUI。
@@ -48,3 +48,11 @@ code --version
 然后在 VS Code 里：
 打开命令面板 Cmd+Shift+P
 运行 Go: Locate Configured Go Tools，应该就能找到 Go 和 gopls 了。
+
+useful tools
+
+MySQL UI
+BeekeeperStudio
+
+MongoDB
+UI: https://www.mongodb.com/try/download/compass

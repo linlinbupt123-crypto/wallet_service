@@ -3,7 +3,6 @@ package chain
 import (
 	"context"
 	"crypto/ecdsa"
-	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -41,8 +40,6 @@ func (e *ETHChain) SendETH(ctx context.Context, priv *ecdsa.PrivateKey, to strin
 	e.ChainID = chainID
 
 	fromAddr := crypto.PubkeyToAddress(priv.PublicKey)
-	tmpaddr := fromAddr.Hex()
-	fmt.Printf("from address: %s\n", tmpaddr)
 	nonce, err := client.PendingNonceAt(ctx, fromAddr)
 	if err != nil {
 		return "", wrapErrors.WrapWithCode(wrapErrors.PendingNonceAt, "PendingNonceAt", err)
@@ -86,4 +83,25 @@ func (e *ETHChain) SendETH(ctx context.Context, priv *ecdsa.PrivateKey, to strin
 	}
 
 	return signedTx.Hash().Hex(), nil
+}
+
+func (e *ETHChain) GetBalance(
+	ctx context.Context,
+	address string,
+) (*big.Int, error) {
+
+	client, err := ethclient.Dial(e.Rpc)
+	if err != nil {
+		return nil, err
+	}
+
+	addr := common.HexToAddress(address)
+
+	// latest block balance
+	balance, err := client.BalanceAt(ctx, addr, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return balance, nil
 }

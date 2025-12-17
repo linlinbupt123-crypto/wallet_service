@@ -122,3 +122,32 @@ func (h *WalletHandler) SendTransaction(c *gin.Context) {
 		"tx_hash": txHash,
 	})
 }
+
+type GetBalanceReq struct {
+	Chain string `json:"chain" binding:"required"`
+}
+
+func (h *WalletHandler) GetBalance(c *gin.Context) {
+	userID := c.Param("userID")
+
+	var req GetBalanceReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	balance, err := h.walletService.GetBalance(
+		c.Request.Context(),
+		userID,
+		req.Chain,
+	)
+	if err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{
+		"chain":   req.Chain,
+		"balance": balance, // Wei
+	})
+}

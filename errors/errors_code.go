@@ -10,4 +10,5 @@ const (
 	SignerErr       Code = "SIGNER_ERROR"
 	SendTxErr       Code = "SEND_TX_ERROR"
 	GetchainIDErr   Code = "GET_CHAIN_ID_ERROR"
+	DeriveErr       Code = "DERIVE_ERROR"
 )

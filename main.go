@@ -37,16 +37,20 @@ func main() {
 
 	walletHandler := api.NewWalletHandler(walletService)
 
-	// 1) 创建 HD 钱包 + 地址
+	// create HD wallet & address
 	r.POST("/wallet/:userID", walletHandler.CreateWallet)
 
-	// 2) 获取用户所有地址
+	// get all addresses of a user
 	r.GET("/wallet/:userID/addresses", walletHandler.GetAddresses)
 
-	// 3) 派生新的地址
+	// derive new address
 	r.POST("/wallet/:userID/address/new", walletHandler.DeriveAddress) // ?chain=btc
 
+	// send transaction
 	r.POST("/wallet/:userID/tx/send", walletHandler.SendTransaction)
+
+	// get balance
+	r.GET("/wallet/:userID/balance", walletHandler.GetBalance)
 
 	if err := r.Run(":8080"); err != nil {
 		log.Fatalf("server start failed: %v", err)
