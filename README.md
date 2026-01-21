@@ -1,6 +1,6 @@
 # Wallet Service
 
-A simple HD wallet service supporting Ethereum (ETH) and Bitcoin (BTC) testnets.  
+A simple wallet service supporting Ethereum (ETH) testnets.  
 This service allows creating HD wallets, deriving addresses, sending transactions, and querying balances.
 ---
 ## Features
@@ -10,6 +10,7 @@ This service allows creating HD wallets, deriving addresses, sending transaction
 - Send transactions (ETH/BTC)
 - Query wallet balances
 - Compatible with Ethereum Sepolia testnet
+- Import local hardhat private to the wallet
 
 
 apply test ETH from Faucet
