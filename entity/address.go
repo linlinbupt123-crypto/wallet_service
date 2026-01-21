@@ -11,5 +11,6 @@ type Address struct {
 	Chain     string    `bson:"chain" json:"chain"`     // btc / eth / solana
 	Address   string    `bson:"address" json:"address"` // 主地址
 	Index     uint32    `bson:"index" json:"index"`     // 派生索引
+	Source    string    `bson:"source"`                 // "imported"
 	CreatedAt time.Time `bson:"created_at" json:"created_at"`
 }

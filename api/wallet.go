@@ -24,6 +24,7 @@ type CreateWalletReq struct {
 }
 
 type DeriveAddressRequst struct {
+	WalletID   string `json:"wallet_id" binding:"required"`
 	UserID     string `json:"user_id" binding:"required"`
 	Passphrase string `json:"passphrase" binding:"required"`
 	ChainName  string `json:"chain_name" binding:"required"`
@@ -77,6 +78,7 @@ func (h *WalletHandler) DeriveAddress(c *gin.Context) {
 
 	addr, err := h.walletService.DeriveNewAddress(
 		c.Request.Context(),
+		req.WalletID,
 		req.UserID,
 		req.Passphrase,
 		req.ChainName,
@@ -149,5 +151,40 @@ func (h *WalletHandler) GetBalance(c *gin.Context) {
 	c.JSON(200, gin.H{
 		"chain":   req.Chain,
 		"balance": balance, // Wei
+	})
+}
+
+type ImportWalletReq struct {
+	WalletName string `json:"wallet_name" binding:"required"`
+	Chain      string `json:"chain" binding:"required"` // 这里只支持 eth
+	PrivateKey string `json:"private_key" binding:"required"`
+	Passphrase string `json:"passphrase" binding:"required"`
+}
+
+func (h *WalletHandler) ImportWallet(c *gin.Context) {
+	userID := c.Param("userID")
+	var req ImportWalletReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	wallet, addr, err := h.walletService.ImportETHPrivateKey(
+		c.Request.Context(),
+		userID,
+		req.WalletName,
+		req.PrivateKey,
+		req.Passphrase,
+	)
+	if err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{
+		"wallet_id":   wallet.ID,
+		"wallet_name": wallet.WalletName,
+		"wallet_type": wallet.WalletType,
+		"address":     addr.Address,
 	})
 }

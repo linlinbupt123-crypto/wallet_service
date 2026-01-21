@@ -13,10 +13,15 @@ BIP-44 路径解析这个路径中的每一个斜杠 / 分隔的部分都代表�
 		• $1' = Testnet (测试网络)
 		• $60' = Ethereum (ETH)
 
-4 		0'		  Account账户 			允许用户将他们的资金分到不同的“账户”中（类似于银行账户）。通常从 $0'$ 开始编号。
+4 		0'		  Account账户 			允许用户将他们的资金分到不同的“账户”中（类似于银行账户）。通常从 $0' 开始编号。
 5		0		  Change找零/内部。      用 0 表示外部链（External Chain），用于接收地址。用1表示内部链（Internal Chain/Change Chain），用于找零地址（主要用于 UTXO 模型，如比特币）。没有撇号表示常规派生 (Normal Derivation)。
 6.      0.        Address Index地址索引。这是特定账户中派生出的第 N 个地址。从 0 开始计数 ($0, 1, 2, ...$)。没有撇号表示常规派生。
 */
 const (
 	ETH_DERIVATION_PATH_PREFIX = "m/44'/60'/0'/0/"
+)
+
+const (
+	HdWalletType       = "hd"
+	ImportedWalletType = "imported"
 )

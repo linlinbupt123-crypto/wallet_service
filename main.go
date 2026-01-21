@@ -52,6 +52,9 @@ func main() {
 	// get balance
 	r.GET("/wallet/:userID/balance", walletHandler.GetBalance)
 
+	// import wallet
+	r.POST("/wallet/:userID/import", walletHandler.ImportWallet)
+
 	if err := r.Run(":8080"); err != nil {
 		log.Fatalf("server start failed: %v", err)
 	}

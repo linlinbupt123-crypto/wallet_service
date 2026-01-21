@@ -60,3 +60,29 @@ func (r *AddressRepo) GetMaxIndex(ctx context.Context, walletID string, chain st
 
 	return int(out.Index), nil
 }
+
+// GetByAddrID 根据链上的地址查找 Address
+func (r *AddressRepo) GetByAddrID(ctx context.Context, address string) (*entity.Address, error) {
+	var addr entity.Address
+	err := r.col.FindOne(ctx, bson.M{"address": address}).Decode(&addr)
+	if err == mongo.ErrNoDocuments {
+		return nil, nil // 找不到返回 nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &addr, nil
+}
+
+// GetByWalletID 根据钱包 ID 查找 Address
+func (r *AddressRepo) GetByWalletID(ctx context.Context, walletID string) (*entity.Address, error) {
+	var addr entity.Address
+	err := r.col.FindOne(ctx, bson.M{"wallet_id": walletID}).Decode(&addr)
+	if err == mongo.ErrNoDocuments {
+		return nil, nil // 找不到返回 nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &addr, nil
+}

@@ -28,7 +28,7 @@ func NewWalletService() *Wallet {
 }
 
 // 创建钱包
-func (s *Wallet) CreateWallet(userID, passphrase string) (*entity.HDWallet, error) {
+func (s *Wallet) CreateWallet(userID, passphrase string) (*entity.Wallet, error) {
 	return s.HDWalletDomain.CreateWallet(s.Ctx, userID, passphrase)
 }
 

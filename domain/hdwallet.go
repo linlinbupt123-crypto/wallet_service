@@ -26,6 +26,7 @@ import (
 
 	"github.com/linlinbupt123-crypto/wallet_service/entity"
 	"github.com/linlinbupt123-crypto/wallet_service/repository"
+	"github.com/linlinbupt123-crypto/wallet_service/utils"
 )
 
 // NOTE:
@@ -151,7 +152,7 @@ Notes:
   - We encode KDF algorithm and iterations into SaltHex so callers can later derive correctly.
   - We try to zero sensitive variables as soon as possible.
 */
-func (s *HDWallet) CreateWallet(ctx context.Context, userID string, passphrase string) (*entity.HDWallet, error) {
+func (s *HDWallet) CreateWallet(ctx context.Context, userID string, passphrase string) (*entity.Wallet, error) {
 	// 1) generate mnemonic (entropy 256 bits => 24 words)
 	entropy, err := bip39.NewEntropy(256)
 	if err != nil {
@@ -220,8 +221,9 @@ func (s *HDWallet) CreateWallet(ctx context.Context, userID string, passphrase s
 	}
 
 	// 6) assemble entity and persist
-	wallet := &entity.HDWallet{
+	wallet := &entity.Wallet{
 		UserID:            userID,
+		WalletType:        utils.HdWalletType,
 		MnemonicEncrypted: encMnemonic,
 		EncryptedSeed:     encSeed,
 		XPrvEncrypted:     encXPrv,
@@ -240,7 +242,7 @@ func (s *HDWallet) CreateWallet(ctx context.Context, userID string, passphrase s
 
 // DecryptSeed decrypts the stored seed using the provided passphrase.
 // Returns plain seed bytes which caller should clear as soon as possible.
-func (s *HDWallet) DecryptSeed(wallet *entity.HDWallet, passphrase string) ([]byte, error) {
+func (s *HDWallet) DecryptSeed(wallet *entity.Wallet, passphrase string) ([]byte, error) {
 	if wallet == nil {
 		return nil, errors.New("wallet is nil")
 	}
@@ -260,32 +262,54 @@ func (s *HDWallet) DecryptSeed(wallet *entity.HDWallet, passphrase string) ([]by
 	return seed, nil
 }
 
-// LoadWallet returns decrypted seed and decrypted xprv (both must be cleared by caller)
-func (s *HDWallet) LoadWallet(ctx context.Context, userID string, passphrase string) ([]byte, []byte, error) {
-	wallet, err := s.WalletRepo.GetByUserID(ctx, userID)
+// LoadWalletByID 根据 walletID 加载钱包
+// HD钱包返回 seed + xprv
+// Imported钱包返回 privKey + nil
+func (s *HDWallet) LoadWalletByID(ctx context.Context, walletID string, passphrase string) ([]byte, []byte, error) {
+	wallet, err := s.WalletRepo.GetByID(ctx, walletID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("wallet not found: %w", err)
 	}
-	salt, iterations, err := decodeSaltMeta(wallet.SaltHex)
-	if err != nil {
-		return nil, nil, fmt.Errorf("invalid salt metadata: %w", err)
-	}
-	key := deriveKey(passphrase, salt, iterations)
-	defer clearBytes(key)
-
-	seed, err := decrypt(wallet.EncryptedSeed, key)
-	if err != nil {
-		return nil, nil, errors.New("incorrect passphrase or corrupted data")
+	if wallet == nil {
+		return nil, nil, fmt.Errorf("wallet not found")
 	}
 
-	xprv, err := decrypt(wallet.XPrvEncrypted, key)
-	if err != nil {
-		// clear seed before returning
-		clearBytes(seed)
-		return nil, nil, errors.New("incorrect passphrase or corrupted data")
-	}
+	switch wallet.WalletType {
+	case "hd":
+		salt, iterations, err := decodeSaltMeta(wallet.SaltHex)
+		if err != nil {
+			return nil, nil, fmt.Errorf("invalid salt metadata: %w", err)
+		}
+		key := deriveKey(passphrase, salt, iterations)
+		defer clearBytes(key)
 
-	return seed, xprv, nil
+		seed, err := decrypt(wallet.EncryptedSeed, key)
+		if err != nil {
+			return nil, nil, errors.New("incorrect passphrase or corrupted data")
+		}
+
+		xprv, err := decrypt(wallet.XPrvEncrypted, key)
+		if err != nil {
+			clearBytes(seed)
+			return nil, nil, errors.New("incorrect passphrase or corrupted data")
+		}
+
+		return seed, xprv, nil
+
+	case "imported":
+		key, err := utils.DeriveAESKey(passphrase, wallet.UserID)
+		if err != nil {
+			return nil, nil, err
+		}
+		privKey, err := utils.DecryptAES(wallet.CipherKey, key)
+		if err != nil {
+			return nil, nil, err
+		}
+		return privKey, nil, nil // imported钱包没有 xprv
+
+	default:
+		return nil, nil, errors.New("unsupported wallet type")
+	}
 }
 
 // DeriveETHAddress derives an Ethereum address from seed using a BIP32/BIP44 derivation path.
@@ -367,8 +391,8 @@ func parseDerivationPath(path string) ([]uint32, error) {
 
 // VerifyPassphrase checks whether passphrase can decrypt the stored seed.
 // Returns (true, nil) if correct; (false, nil) if passphrase wrong; (false, err) for other errors.
-func (s *HDWallet) VerifyPassphrase(ctx context.Context, userID string, passphrase string) (bool, error) {
-	wallet, err := s.WalletRepo.GetByUserID(ctx, userID)
+func (s *HDWallet) VerifyPassphrase(ctx context.Context, walletID string, passphrase string) (bool, error) {
+	wallet, err := s.WalletRepo.GetByID(ctx, walletID)
 	if err != nil {
 		return false, fmt.Errorf("wallet not found: %w", err)
 	}
