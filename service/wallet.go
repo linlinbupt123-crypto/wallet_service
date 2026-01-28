@@ -2,10 +2,11 @@ package service
 
 import (
 	"context"
-	"crypto/aes"
-	"crypto/cipher"
+	"crypto/ecdsa"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -15,6 +16,7 @@ import (
 	"github.com/linlinbupt123-crypto/wallet_service/entity"
 	walletErr "github.com/linlinbupt123-crypto/wallet_service/errors"
 	"github.com/linlinbupt123-crypto/wallet_service/repository"
+	"github.com/linlinbupt123-crypto/wallet_service/request"
 	"github.com/linlinbupt123-crypto/wallet_service/utils"
 	"golang.org/x/crypto/scrypt"
 )
@@ -150,80 +152,30 @@ func generatePath(purpose, coinType, account, change, index int) string {
 }
 
 // SendTransaction 发起交易（fromAddress 对应你管理的地址）
-func (s *WalletService) SendTransaction(ctx context.Context, chainName, toAddress, amount string, passphrase string, walletID string) (string, error) {
-	// 1. 找钱包
-	wallet, err := s.WalletRepo.GetByID(ctx, walletID)
+func (s *WalletService) SendTransaction(ctx context.Context, req *request.SendTxReq) (string, error) {
+	fromAddr, err := utils.NormalizeETHAddress(req.From)
 	if err != nil {
 		return "", err
 	}
-	if wallet == nil {
-		return "", errors.New("wallet not found")
-	}
-
-	// 2. 解密 seed
-	seed, err := s.HDWalletDomain.DecryptSeed(wallet, passphrase)
+	toAddr, err := utils.NormalizeETHAddress(req.To)
 	if err != nil {
 		return "", err
 	}
-
-	// 3. 根据地址找到 index（这里简单写法：先查所有地址再匹配）
-	addr, err := s.AddressRepo.GetByWalletID(ctx, walletID)
+	// 1. address → walletID
+	addr, err := s.AddressRepo.GetByAddrID(ctx, fromAddr)
 	if err != nil {
 		return "", err
 	}
-	var index int32 = 0
-	if addr.Chain != chainName {
+	if addr == nil {
+		return "", fmt.Errorf("address: %s not found or not belongs to user", fromAddr)
+	}
+	if addr.Chain != req.Chain {
 		return "", errors.New("address not found or not belongs to user")
 	}
-	index = int32(addr.Index)
+	index := int32(addr.Index)
 	if index < 0 {
 		return "", errors.New("address not found or not belongs to user")
 	}
-
-	// 4. 根据 index 重新 derive 出对应私钥/地址，让 chain 层去签名 & 广播
-	switch chainName {
-	case "btc":
-		return "", nil
-		// path 必须和你生成地址时保持一
-		//path := generatePath(44, 0, 0, 0, int(index))
-		// return s.BtcChain.SendTransaction(ctx, seed, path, fromAddress, toAddress, amount)
-	case "eth":
-		path := generatePath(44, 60, 0, 0, int(index))
-
-		privKey, _, err := s.HDWalletDomain.DeriveETHKeyPair(seed, path)
-		if err != nil {
-			return "", walletErr.WrapWithCode(walletErr.DeriveErr, "DeriveETHKeyPair", err)
-		}
-		// ETH → Wei
-		amountWei, err := utils.ETHToWei(amount)
-		if err != nil {
-			return "", err
-		}
-
-		return s.EthChain.SendETH(ctx, privKey, toAddress, amountWei)
-	default:
-		return "", errors.New("unsupported chain")
-	}
-}
-
-func (s *WalletService) SendTransactionByAddress(
-	ctx context.Context,
-	userID string,
-	fromAddress string,
-	toAddress string,
-	amount string,
-	passphrase string,
-) (string, error) {
-	// 1. 根据 fromAddress 查 Address
-	addr, err := s.AddressRepo.GetByAddrID(ctx, fromAddress)
-	if err != nil {
-		return "", err
-	}
-	if addr == nil || addr.UserID != userID {
-		return "", errors.New("address not found or not belongs to user")
-	}
-
-	// 2. 找钱包
 	wallet, err := s.WalletRepo.GetByID(ctx, addr.WalletID)
 	if err != nil {
 		return "", err
@@ -231,8 +183,26 @@ func (s *WalletService) SendTransactionByAddress(
 	if wallet == nil {
 		return "", errors.New("wallet not found")
 	}
+	// 根据 index 重新 derive 出对应私钥/地址，让 chain 层去签名 & 广播
+	switch req.Chain {
+	case "btc":
+		return "", nil
+	case "eth":
+		return s.sendTransactionByAddress(ctx, wallet, addr, toAddr, req.Amount, req.Passphrase)
+	default:
+		return "", errors.New("unsupported chain")
+	}
+}
 
-	var privKeyHex string
+func (s *WalletService) sendTransactionByAddress(
+	ctx context.Context,
+	wallet *entity.Wallet,
+	addr *entity.Address,
+	toAddress string,
+	amount string,
+	passphrase string,
+) (string, error) {
+	var privKey *ecdsa.PrivateKey
 	switch wallet.WalletType {
 	case "hd":
 		seed, err := s.HDWalletDomain.DecryptSeed(wallet, passphrase)
@@ -241,25 +211,30 @@ func (s *WalletService) SendTransactionByAddress(
 		}
 		// HD 派生 index 就是 Address 表里的 Index
 		path := generatePath(44, 60, 0, 0, int(addr.Index))
-		_, privKeyHex, err = s.HDWalletDomain.DeriveETHKeyPair(seed, path)
+		privKey, _, err = s.HDWalletDomain.DeriveETHKeyPair(seed, path)
+		if err != nil {
+			return "", walletErr.WrapWithCode(walletErr.DeriveErr, "DeriveETHKeyPair", err)
+		}
+	case "imported":
+
+		key, err := utils.DeriveAESKey(passphrase, wallet.SaltHex)
 		if err != nil {
 			return "", err
 		}
-	case "imported":
-		key, _ := utils.DeriveAESKey(passphrase, wallet.UserID)
+
 		privKeyBytes, err := utils.DecryptAES(wallet.CipherKey, key)
 		if err != nil {
 			return "", err
 		}
-		privKeyHex = string(privKeyBytes)
+
+		privKeyHex := strings.TrimPrefix(string(privKeyBytes), "0x")
+
+		privKey, err = crypto.HexToECDSA(privKeyHex)
+		if err != nil {
+			return "", err
+		}
 	default:
 		return "", errors.New("unsupported wallet type")
-	}
-
-	// 3. 转换私钥 & 发交易
-	privKey, err := crypto.HexToECDSA(privKeyHex[2:])
-	if err != nil {
-		return "", err
 	}
 	amountWei, err := utils.ETHToWei(amount)
 	if err != nil {
@@ -320,7 +295,7 @@ func (s *WalletService) ImportETHPrivateKey(
 	key, _ := scrypt.Key([]byte(passphrase), salt, 16384, 8, 1, 32)
 
 	// 3. 加密私钥
-	cipherPriv, err := encryptAES(privKeyHex, key)
+	cipherPriv, err := utils.EncryptAES([]byte(privKeyHex), key)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -331,6 +306,7 @@ func (s *WalletService) ImportETHPrivateKey(
 		WalletName: walletName,
 		WalletType: "imported",
 		CipherKey:  cipherPriv,
+		SaltHex:    hex.EncodeToString(salt),
 		CreatedAt:  time.Now(),
 	}
 
@@ -357,17 +333,4 @@ func (s *WalletService) ImportETHPrivateKey(
 	}
 
 	return wallet, addressEntity, nil
-}
-
-// 简单 AES 加密
-func encryptAES(plainText string, key []byte) ([]byte, error) {
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-	b := []byte(plainText)
-	ciphertext := make([]byte, len(b))
-	c := cipher.NewCFBEncrypter(block, key[:block.BlockSize()])
-	c.XORKeyStream(ciphertext, b)
-	return ciphertext, nil
 }

@@ -3,9 +3,12 @@ package utils
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/crypto/scrypt"
 )
 
@@ -27,9 +30,13 @@ func ETHToWei(eth string) (*big.Int, error) {
 }
 
 // DeriveAESKey 通过 passphrase + salt 派生 AES key
-func DeriveAESKey(passphrase, salt string) ([]byte, error) {
+func DeriveAESKey(passphrase, saltHex string) ([]byte, error) {
+	salt, err := hex.DecodeString(saltHex)
+	if err != nil {
+		return nil, err
+	}
 	// N=16384, r=8, p=1, keyLen=32 (AES-256)
-	key, err := scrypt.Key([]byte(passphrase), []byte(salt), 16384, 8, 1, 32)
+	key, err := scrypt.Key([]byte(passphrase), salt, 16384, 8, 1, 32)
 	if err != nil {
 		return nil, err
 	}
@@ -38,22 +45,60 @@ func DeriveAESKey(passphrase, salt string) ([]byte, error) {
 
 // DecryptAES 解密 ciphertext
 func DecryptAES(ciphertext []byte, key []byte) ([]byte, error) {
-	if len(ciphertext) < 1 {
-		return nil, errors.New("empty ciphertext")
-	}
-
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(key) < block.BlockSize() {
-		return nil, errors.New("key too short")
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
 	}
 
-	plainText := make([]byte, len(ciphertext))
-	cfb := cipher.NewCFBDecrypter(block, key[:block.BlockSize()])
-	cfb.XORKeyStream(plainText, ciphertext)
+	nonceSize := gcm.NonceSize()
+	if len(ciphertext) < nonceSize {
+		return nil, errors.New("ciphertext too short")
+	}
 
-	return plainText, nil
+	nonce := ciphertext[:nonceSize]
+	encrypted := ciphertext[nonceSize:]
+
+	plaintext, err := gcm.Open(nil, nonce, encrypted, nil)
+	if err != nil {
+		// 包含：密钥错误 / 数据被篡改 / tag 校验失败
+		return nil, errors.New("decrypt failed or data corrupted")
+	}
+
+	return plaintext, nil
+}
+func EncryptAES(plaintext []byte, key []byte) ([]byte, error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err := rand.Read(nonce); err != nil {
+		return nil, err
+	}
+
+	ciphertext := gcm.Seal(nil, nonce, plaintext, nil)
+
+	// 返回：nonce + ciphertext
+	return append(nonce, ciphertext...), nil
+}
+
+// NormalizeETHAddress
+// - 接受任意合法 ETH 地址（小写 / 大写 / checksum）
+// - 返回标准 checksum 地址
+func NormalizeETHAddress(addr string) (string, error) {
+	if !common.IsHexAddress(addr) {
+		return "", errors.New("invalid ethereum address")
+	}
+	return common.HexToAddress(addr).Hex(), nil
 }

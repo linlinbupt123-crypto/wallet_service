@@ -16,7 +16,7 @@ type AddressRepo struct {
 }
 
 func NewAddressRepo() *AddressRepo {
-	return &AddressRepo{col: db.MongoDB.AssetColl}
+	return &AddressRepo{col: db.MongoDB.AddrColl}
 }
 
 func (r *AddressRepo) Create(ctx context.Context, addr *entity.Address) error {

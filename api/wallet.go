@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/linlinbupt123-crypto/wallet_service/request"
 	"github.com/linlinbupt123-crypto/wallet_service/service"
 )
 
@@ -16,24 +17,10 @@ func NewWalletHandler(ws *service.WalletService) *WalletHandler {
 	return &WalletHandler{walletService: ws}
 }
 
-// --- 请求结构 ---
-type CreateWalletReq struct {
-	UserID     string `json:"user_id" binding:"required"`
-	Passphrase string `json:"passphrase" binding:"required"`
-	ChainName  string `json:"chain_name" binding:"required"`
-}
-
-type DeriveAddressRequst struct {
-	WalletID   string `json:"wallet_id" binding:"required"`
-	UserID     string `json:"user_id" binding:"required"`
-	Passphrase string `json:"passphrase" binding:"required"`
-	ChainName  string `json:"chain_name" binding:"required"`
-}
-
 // CreateWallet, create HD wallet and main address
 func (h *WalletHandler) CreateWallet(c *gin.Context) {
 	userID := c.Param("userID")
-	var req CreateWalletReq
+	var req request.CreateWalletReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -70,7 +57,7 @@ func (h *WalletHandler) GetAddresses(c *gin.Context) {
 
 // DeriveAddress, derived address
 func (h *WalletHandler) DeriveAddress(c *gin.Context) {
-	var req DeriveAddressRequst
+	var req request.DeriveAddressRequst
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -91,17 +78,8 @@ func (h *WalletHandler) DeriveAddress(c *gin.Context) {
 	c.JSON(http.StatusOK, addr)
 }
 
-type SendTxReq struct {
-	Chain      string `json:"chain" binding:"required"`
-	To         string `json:"to" binding:"required"`
-	Amount     string `json:"amount" binding:"required"`
-	Passphrase string `json:"passphrase" binding:"required"`
-}
-
 func (h *WalletHandler) SendTransaction(c *gin.Context) {
-	userID := c.Param("userID")
-
-	var req SendTxReq
+	var req request.SendTxReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(400, gin.H{"error": err.Error()})
 		return
@@ -109,11 +87,7 @@ func (h *WalletHandler) SendTransaction(c *gin.Context) {
 
 	txHash, err := h.walletService.SendTransaction(
 		c.Request.Context(),
-		req.Chain,
-		req.To,
-		req.Amount,
-		req.Passphrase,
-		userID,
+		&req,
 	)
 	if err != nil {
 		c.JSON(400, gin.H{"error": err.Error()})
@@ -125,14 +99,10 @@ func (h *WalletHandler) SendTransaction(c *gin.Context) {
 	})
 }
 
-type GetBalanceReq struct {
-	Chain string `json:"chain" binding:"required"`
-}
-
 func (h *WalletHandler) GetBalance(c *gin.Context) {
 	userID := c.Param("userID")
 
-	var req GetBalanceReq
+	var req request.GetBalanceReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(400, gin.H{"error": err.Error()})
 		return
